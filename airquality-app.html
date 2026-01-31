@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AQI Thailand">
+    <meta name="theme-color" content="#667eea">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23667eea' width='100' height='100'/><text y='75' font-size='70' text-anchor='middle' x='50'>🌫️</text></svg>">
+    <link rel="manifest" href="manifest-aqi.json">
+    <title>AQI Thailand - Luchtkwaliteit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --card-bg: white;
+            --text-dark: #333;
+            --text-light: #666;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            overflow-x: hidden;
+        }
+
+        .app-header {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .app-title {
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .app-subtitle {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .container {
+            padding: 15px;
+            padding-bottom: 80px;
+        }
+
+        .city-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .city-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .city-name {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .aqi-circle {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        .aqi-icon {
+            font-size: 2.5em;
+            margin-bottom: 5px;
+        }
+
+        .aqi-value {
+            font-size: 3.5em;
+            font-weight: bold;
+            color: white;
+        }
+
+        .aqi-label {
+            font-size: 1em;
+            color: white;
+            margin-top: 5px;
+        }
+
+        .aqi-category {
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+
+        .health-message {
+            text-align: center;
+            font-size: 1em;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        .pollutants-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        .pollutant-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .pollutant-name {
+            font-size: 1em;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .pollutant-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--text-dark);
+        }
+
+        .pollutant-unit {
+            font-size: 0.85em;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            color: var(--primary-color);
+            margin: 25px 0 15px 0;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-section {
+            background: #f9f9f9;
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-light);
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .info-value {
+            color: var(--text-dark);
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary-color);
+            border: none;
+            font-size: 1.8em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .refresh-btn:active {
+            transform: scale(0.9);
+        }
+
+        .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .legend-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            color: var(--primary-color);
+            border: none;
+            font-size: 1.5em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+
+        .legend-btn:active {
+            transform: scale(0.9);
+        }
+
+        .legend-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .legend-modal.show {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .legend-content {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .legend-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 2em;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+        }
+
+        .legend-title {
+            font-size: 1.5em;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+
+        .legend-color {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-text {
+            flex: 1;
+        }
+
+        .legend-range {
+            font-weight: bold;
+            font-size: 1em;
+            margin-bottom: 3px;
+        }
+
+        .legend-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.3em;
+        }
+
+        .loading-spinner {
+            font-size: 3em;
+            animation: spin 2s linear infinite;
+        }
+
+        .error {
+            text-align: center;
+            padding: 30px;
+            color: #f44336;
+            font-size: 1.1em;
+            background: white;
+            border-radius: 15px;
+            margin: 20px;
+        }
+
+        .install-prompt {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 2000;
+        }
+
+        .install-prompt.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .install-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+
+        .close-install {
+            float: right;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <div class="app-title">🌫️ AQI Thailand</div>
+        <div class="app-subtitle">Luchtkwaliteit Monitor</div>
+    </div>
+
+    <div class="container" id="airQualityContainer">
+        <div class="loading">
+            <div class="loading-spinner">⏳</div>
+            <div>Luchtkwaliteitsgegevens worden opgehaald...</div>
+        </div>
+    </div>
+
+    <button class="legend-btn" id="legendBtn" onclick="showLegend()">ℹ️</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadAirQuality()">🔄</button>
+
+    <div class="legend-modal" id="legendModal" onclick="hideLegend()">
+        <div class="legend-content" onclick="event.stopPropagation()">
+            <span class="legend-close" onclick="hideLegend()">×</span>
+            <div class="legend-title">📊 AQI Schaal</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00E400;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">0-50 Goed 😊</div>
+                        <div class="legend-label">Schone lucht, veilig</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FFFF00;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">51-100 Matig 😐</div>
+                        <div class="legend-label">Acceptabel</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF7E00;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">101-150 Ongezond 😷</div>
+                        <div class="legend-label">Gevoelige groepen</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF0000;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">151-200 Ongezond 😨</div>
+                        <div class="legend-label">Iedereen voelt het</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #8F3F97;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">201-300 Zeer ongezond 🚨</div>
+                        <div class="legend-label">Gezondheidsrisico's</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #7E0023;"></div>
+                    <div class="legend-text">
+                        <div class="legend-range">300+ Gevaarlijk ☠️</div>
+                        <div class="legend-label">Blijf binnen!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="install-prompt" id="installPrompt">
+        <span class="close-install" onclick="closeInstall()">×</span>
+        <h3>📱 Installeer AQI Thailand</h3>
+        <p>Voeg deze app toe aan je home screen voor snelle toegang!</p>
+        <button class="install-btn" onclick="showInstallInstructions()">Installeer App</button>
+    </div>
+
+    <script>
+        const cities = [
+            { name: 'Chiang Mai', lat: 18.7883, lon: 98.9853 },
+            { name: 'Chiang Rai', lat: 19.9105, lon: 99.8406 }
+        ];
+
+        function getAQIColor(aqi) {
+            if (aqi <= 50) return '#00E400';
+            if (aqi <= 100) return '#FFFF00';
+            if (aqi <= 150) return '#FF7E00';
+            if (aqi <= 200) return '#FF0000';
+            if (aqi <= 300) return '#8F3F97';
+            return '#7E0023';
+        }
+
+        function getAQICategory(aqi) {
+            if (aqi <= 50) return 'Goed';
+            if (aqi <= 100) return 'Matig';
+            if (aqi <= 150) return 'Ongezond (gevoelig)';
+            if (aqi <= 200) return 'Ongezond';
+            if (aqi <= 300) return 'Zeer ongezond';
+            return 'Gevaarlijk';
+        }
+
+        function getAQIIcon(aqi) {
+            if (aqi <= 50) return '😊';
+            if (aqi <= 100) return '😐';
+            if (aqi <= 150) return '😷';
+            if (aqi <= 200) return '😨';
+            if (aqi <= 300) return '🚨';
+            return '☠️';
+        }
+
+        function getHealthMessage(aqi) {
+            if (aqi <= 50) {
+                return {
+                    text: 'Uitstekende luchtkwaliteit! Perfect voor buitenactiviteiten.',
+                    color: '#00E400'
+                };
+            }
+            if (aqi <= 100) {
+                return {
+                    text: 'Acceptabele luchtkwaliteit. Gevoelige personen: wees voorzichtig.',
+                    color: '#FFFF00'
+                };
+            }
+            if (aqi <= 150) {
+                return {
+                    text: 'Gevoelige groepen: vermijd langdurige buitenactiviteiten.',
+                    color: '#FF7E00'
+                };
+            }
+            if (aqi <= 200) {
+                return {
+                    text: 'Iedereen kan gezondheidseffecten ervaren. Vermijd zware activiteiten.',
+                    color: '#FF0000'
+                };
+            }
+            if (aqi <= 300) {
+                return {
+                    text: 'Gezondheidswaarschuwing! Blijf zoveel mogelijk binnen.',
+                    color: '#8F3F97'
+                };
+            }
+            return {
+                text: 'GEVAARLIJK! Blijf binnen. Gebruik luchtzuiveraars.',
+                color: '#7E0023'
+            };
+        }
+
+        async function fetchAirQualityForCity(city) {
+            const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}&current=pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone,us_aqi&timezone=Asia/Bangkok`;
+
+            console.log(`Fetching AQI data for ${city.name}...`);
+
+            try {
+                const response = await fetch(url);
+                console.log(`Response status for ${city.name}: ${response.status}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log(`Data received for ${city.name}:`, data);
+                return data;
+            } catch (error) {
+                console.error(`Error fetching data for ${city.name}:`, error);
+                throw error;
+            }
+        }
+
+        function createCityCard(city, aqData) {
+            const current = aqData.current;
+            const aqi = Math.round(current.us_aqi || 0);
+            const color = getAQIColor(aqi);
+            const category = getAQICategory(aqi);
+            const icon = getAQIIcon(aqi);
+            const healthMsg = getHealthMessage(aqi);
+
+            return `
+                <div class="city-card">
+                    <div class="city-header">
+                        <div class="city-name">📍 ${city.name}</div>
+                        <div class="aqi-circle" style="background: ${color};">
+                            <div class="aqi-icon">${icon}</div>
+                            <div class="aqi-value">${aqi}</div>
+                            <div class="aqi-label">AQI</div>
+                        </div>
+                        <div class="aqi-category" style="color: ${color};">${category}</div>
+                    </div>
+
+                    <div class="health-message" style="background-color: ${healthMsg.color}20; border-left: 4px solid ${healthMsg.color};">
+                        ${healthMsg.text}
+                    </div>
+
+                    <div class="section-title">🧪 Vervuilingsniveaus</div>
+                    <div class="pollutants-grid">
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">PM2.5</div>
+                            <div class="pollutant-value">${Math.round(current.pm2_5 || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">PM10</div>
+                            <div class="pollutant-value">${Math.round(current.pm10 || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">O₃</div>
+                            <div class="pollutant-value">${Math.round(current.ozone || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">NO₂</div>
+                            <div class="pollutant-value">${Math.round(current.nitrogen_dioxide || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">SO₂</div>
+                            <div class="pollutant-value">${Math.round(current.sulphur_dioxide || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card">
+                            <div class="pollutant-name">CO</div>
+                            <div class="pollutant-value">${Math.round(current.carbon_monoxide || 0)}</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <div class="info-item">
+                            <span class="info-label">🕐 Bijgewerkt</span>
+                            <span class="info-value">${new Date(current.time).toLocaleString('nl-NL', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">📏 Hoofdvervuiler</span>
+                            <span class="info-value">PM2.5</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadAirQuality() {
+            const container = document.getElementById('airQualityContainer');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            console.log('Loading air quality data...');
+            refreshBtn.classList.add('spinning');
+            container.innerHTML = '<div class="loading"><div class="loading-spinner">⏳</div><div>Luchtkwaliteitsgegevens worden opgehaald...</div></div>';
+
+            try {
+                console.log('Fetching data for cities:', cities);
+                const aqPromises = cities.map(city => fetchAirQualityForCity(city));
+                const aqResults = await Promise.all(aqPromises);
+
+                console.log('All data received:', aqResults);
+
+                let cardsHTML = '';
+                aqResults.forEach((data, index) => {
+                    cardsHTML += createCityCard(cities[index], data);
+                });
+
+                container.innerHTML = cardsHTML;
+                console.log('Cards rendered successfully');
+            } catch (error) {
+                console.error('Error loading air quality:', error);
+                container.innerHTML = `
+                    <div class="error">
+                        ⚠️ Fout bij het ophalen van luchtkwaliteitsgegevens.<br>
+                        <small>Error: ${error.message}</small><br>
+                        Probeer het later opnieuw of check de console voor details.
+                    </div>
+                `;
+            } finally {
+                refreshBtn.classList.remove('spinning');
+                console.log('Load complete');
+            }
+        }
+
+        function showLegend() {
+            document.getElementById('legendModal').classList.add('show');
+        }
+
+        function hideLegend() {
+            document.getElementById('legendModal').classList.remove('show');
+        }
+
+        function showInstallInstructions() {
+            alert('📱 Installeer deze app:\n\n1. Tik op het deel-icoon (□↑) onderaan\n2. Scroll naar beneden\n3. Tik op "Zet op beginscherm"\n4. Tik op "Voeg toe"');
+        }
+
+        function closeInstall() {
+            document.getElementById('installPrompt').classList.remove('show');
+            localStorage.setItem('aqiInstallPromptClosed', 'true');
+        }
+
+        // Toon install prompt
+        setTimeout(() => {
+            const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            const promptClosed = localStorage.getItem('aqiInstallPromptClosed');
+
+            if (!isStandalone && !promptClosed) {
+                document.getElementById('installPrompt').classList.add('show');
+            }
+        }, 3000);
+
+        // Laad data
+        loadAirQuality();
+
+        // Auto-refresh elke 15 minuten
+        setInterval(loadAirQuality, 900000);
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw-aqi.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
